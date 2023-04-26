@@ -1,0 +1,20 @@
+# @package _group_
+name: dmcontrol-walker-walk-distribution-v0
+num_envs: 10
+builder:
+  _target_: mtrl.env.builder.build_dmcontrol_vec_env
+  domain_name: walker
+  task_name: walk
+  prefix: len
+  make_kwargs:
+    frame_skip: 1 # same as action_repeat
+    visualize_reward: False
+    from_pixels: False
+    seed: ${setup.seed}
+train:
+  - 3
+eval:
+  interpolation: ${env.train}  # need to put something here or there'll be error
+  extrapolation: ${env.train}
+  base: ${env.train}
+description:

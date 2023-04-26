@@ -1,0 +1,21 @@
+# @package _group_
+name: dmcontrol-walker-skill-distribution-v0
+num_envs: 23
+builder:
+  _target_: mtrl.env.builder.build_dmcontrol_vec_env
+  domain_name: walker_skill
+  task_name: walk
+  prefix: skill
+  make_kwargs:
+    frame_skip: 1 # same as action_repeat
+    visualize_reward: False
+    from_pixels: False
+    seed: ${setup.seed}
+train:
+  - 0
+eval:
+  interpolation: ${env.train}
+  extrapolation: ${env.train}
+  base: ${env.train}
+description:
+  
