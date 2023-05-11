@@ -85,9 +85,12 @@ def set_seed(seed: int) -> None:
     Args:
         seed (int): seed to set.
     """
-    random.seed(seed)
-    np.random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
     torch.manual_seed(seed)  # type: ignore
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
     # Module has no attribute "manual_seed_all"  [attr-defined]
     os.environ["PYTHONHASHSEED"] = str(seed)
 

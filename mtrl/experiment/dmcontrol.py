@@ -27,11 +27,14 @@ class Experiment(multitask.Experiment):
         self, multitask_obs: ObsType, modes: List[str]
     ) -> TensorType:
         agent = self.agent
-        # with agent_utils.eval_mode(agent):
-        #     action = agent.select_action(multitask_obs=multitask_obs, modes=modes)
-        
-        # temporary test
-        action = agent.select_action(multitask_obs=multitask_obs, modes=modes)
+        # modes: ['base' or 'interpolation' or 'extrapolation']
+        with agent_utils.eval_mode(agent):
+            # agent: mtrl.agent.distral.Agent
+            # action = agent.sample_action(multitask_obs=multitask_obs, modes=modes)
+
+            # original version
+            action = agent.select_action(multitask_obs=multitask_obs, modes=modes)
+
         return action
 
     def evaluate_vec_env_of_tasks(self, vec_env: VecEnv, step: int, episode: int):
@@ -64,18 +67,21 @@ class Experiment(multitask.Experiment):
 
         # for rendering
         imgs = []
-        while not np.all(done):
+        # while not np.all(done):
+        for _ in range(1000):
             action = self.get_action_when_evaluating_vec_env_of_tasks(
                 multitask_obs=multitask_obs, modes=vec_env.mode
             )
             multitask_obs, reward, done, _ = vec_env.step(action)
             mask = mask * (1 - done.astype(int))
+            # print("mask: ", mask)
+            # print(episode_reward)
             episode_reward += reward * mask
 
             # render img
             img = vec_env.render()
             imgs.append(img)
-            
+            # print(done)
         # while not np.all(finish):
         # for _ in range(1000):
         #     action = self.get_action_when_evaluating_vec_env_of_tasks(
@@ -89,41 +95,37 @@ class Experiment(multitask.Experiment):
 
         start_index = 0
         for mode in self.eval_modes_to_env_ids:
-            # print("===================================")
-            # print(self.eval_modes_to_env_ids[mode])
-            print("=====================================")
-            print("start_index: ", start_index)
-            print("offset: ", offset)
-            print("num_envs: ", num_envs)
-            print("=====================================")
-            num_envs = len(self.eval_modes_to_env_ids[mode])
-            self.logger.log(
-                f"{mode}/episode_reward",
-                episode_reward[start_index : start_index + offset * num_envs].mean(),
-                step,
-            )
-            for _current_env_index, _current_env_id in enumerate(
-                self.eval_modes_to_env_ids[mode]
-            ):
+            if self.eval_modes_to_env_ids[mode] != None:
+                num_envs = len(self.eval_modes_to_env_ids[mode])
                 self.logger.log(
-                    f"{mode}/episode_reward_env_index_{_current_env_index}",
-                    episode_reward[
-                        start_index
-                        + _current_env_index * offset : start_index
-                        + (_current_env_index + 1) * offset
-                    ].mean(),
+                    f"{mode}/episode_reward",
+                    episode_reward[start_index : start_index + offset * num_envs].mean(),
                     step,
                 )
-                self.logger.log(
-                    f"{mode}/env_index_{_current_env_index}", _current_env_id, step
-                )
-                rew = episode_reward[
-                        start_index
-                        + _current_env_index * offset : start_index
-                        + (_current_env_index + 1) * offset
-                    ].mean()
-                wandb.log({"eval_episode_reward_{}".format(_current_env_id): rew}, step=step)
-            start_index += offset * num_envs
+                # print("self.eval_modes_to_env_ids[mode]: ", self.eval_modes_to_env_ids[mode])
+                # print("mode: ", mode)
+                for _current_env_index, _current_env_id in enumerate(
+                    self.eval_modes_to_env_ids[mode]
+                ):
+                    self.logger.log(
+                        f"{mode}/episode_reward_env_index_{_current_env_index}",
+                        episode_reward[
+                            start_index
+                            + _current_env_index * offset : start_index
+                            + (_current_env_index + 1) * offset
+                        ].mean(),
+                        step,
+                    )
+                    self.logger.log(
+                        f"{mode}/env_index_{_current_env_index}", _current_env_id, step
+                    )
+                    rew = episode_reward[
+                            start_index
+                            + _current_env_index * offset : start_index
+                            + (_current_env_index + 1) * offset
+                        ].mean()
+                    wandb.log({"eval_episode_reward_{}".format(_current_env_id): rew}, step=step)
+                start_index += offset * num_envs
         self.logger.dump(step)
         
         imgs = np.array(imgs) # [episode_len, env_num, width, height, channel]

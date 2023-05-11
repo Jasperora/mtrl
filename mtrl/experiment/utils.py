@@ -20,6 +20,10 @@ def prepare_and_run(config: ConfigType) -> None:
     set_seed(seed=config.setup.seed)
     print(f"Starting Experiment at {time.asctime(time.localtime(time.time()))}")
     print(f"torch version = {torch.__version__}")  # type: ignore
+
+    # config example:
+    # if setup=hipbmdp
+    # config.experiment => config/experiment/{hipbmdp.yaml}
     experiment = hydra.utils.instantiate(
         config.experiment.builder, config
     )  # cant seem to pass as a kwargs

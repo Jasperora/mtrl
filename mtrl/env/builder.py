@@ -29,7 +29,6 @@ def build_dmcontrol_vec_env(
             )
 
         return _func
-
     funcs_to_make_envs = [
         get_func_to_make_envs(seed=seed, initial_task_state=task_state)
         for (seed, task_state) in zip(seed_list, env_id_list)

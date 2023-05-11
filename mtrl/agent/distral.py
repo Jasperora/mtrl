@@ -259,6 +259,9 @@ class DistilledAgent(abstract.Agent):
                 env_obs = env_obs.unsqueeze(0)  # Make a batch
 
             mtobs = MTObs(env_obs=env_obs, task_obs=None, task_info=NoneTaskInfo)
+
+            # self.actor has encoder and model
+            # mtrl/agent/components/actor.py
             mu, _, _, _ = self.actor(mtobs=mtobs)
             return mu.cpu().numpy()
 

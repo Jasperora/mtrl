@@ -13,6 +13,7 @@ builder:
     seed: ${setup.seed}
 train:
   - 3
+  - 4
 eval:
   interpolation: ${env.train}  # need to put something here or there'll be error
   extrapolation: ${env.train}

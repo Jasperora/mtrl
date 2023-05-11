@@ -7,15 +7,15 @@ builder:
   task_name: walk
   prefix: skill
   make_kwargs:
-    frame_skip: 1 # same as action_repeat
+    frame_skip: 4 # same as action_repeat, choose frame_skip=4 as before
     visualize_reward: False
     from_pixels: False
     seed: ${setup.seed}
 train:
   - 0
 eval:
-  interpolation: ${env.train}
-  extrapolation: ${env.train}
+  # interpolation: ${env.train}
+  # extrapolation: ${env.train}
   base: ${env.train}
 description:
   

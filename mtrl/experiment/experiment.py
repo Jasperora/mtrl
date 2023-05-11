@@ -111,7 +111,6 @@ class Experiment(checkpointable.Checkpointable):
             "max_episode_steps"
         ]  # maximum steps that the agent can take in one environment.
 
-        self.startup_logs()
 
     def build_envs(self) -> Tuple[EnvsDictType, EnvMetaDataType]:
         """Subclasses should implement this method to build the environments.

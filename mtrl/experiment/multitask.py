@@ -32,6 +32,8 @@ class Experiment(experiment.Experiment):
             x[0] for x in self.config.metrics["train"] if not x[0].endswith("_")
         }
 
+        self.max_episode_steps = 1000
+
     def build_envs(self) -> Tuple[EnvsDictType, EnvMetaDataType]:
         """Build environments and return env-related metadata"""
         if "dmcontrol" not in self.config.env.name:
@@ -74,9 +76,6 @@ class Experiment(experiment.Experiment):
             if "_" in mode:
                 _mode, _submode = mode.split("_")
                 env_ids = self.config.env[_mode][_submode]
-                eval_modes_to_env_ids[mode] = env_ids
-            elif mode == "eval":
-                env_ids = self.config.env["eval"]["base"]
                 eval_modes_to_env_ids[mode] = env_ids
             elif mode != "eval":
                 raise ValueError(f"eval mode = `{mode}`` is not supported.")
@@ -135,8 +134,9 @@ class Experiment(experiment.Experiment):
         """Run the experiment."""
         wandb.init(
             project="mtrl",
-            name="dm-control"
+            name="test"
         )
+
         exp_config = self.config.experiment
 
         vec_env = self.envs["train"]
@@ -163,8 +163,29 @@ class Experiment(experiment.Experiment):
 
         imgs = []
         for step in range(self.start_step, exp_config.num_train_steps):
+            # evaluate agent periodically
+            if step % exp_config.eval_freq == 0:
+                print("start evaluate")
+                self.evaluate_vec_env_of_tasks(
+                    vec_env=self.envs["eval"], step=step, episode=episode
+                )
+                print("evaluate finished")
+                if exp_config.save.model:
+                    self.agent.save(
+                        self.model_dir,
+                        step=step,
+                        retain_last_n=exp_config.save.model.retain_last_n,
+                    )
+                if exp_config.save.buffer.should_save:
+                    self.replay_buffer.save(
+                        self.buffer_dir,
+                        size_per_chunk=exp_config.save.buffer.size_per_chunk,
+                        num_samples_to_save=exp_config.save.buffer.num_samples_to_save,
+                    )
 
-            if step % self.max_episode_steps == 0:  # todo
+            print("done: ", done)
+            # add or done
+            if done:  # todo
                 if use_render:
                     imgs = np.array(imgs)
                     imgs = imgs.transpose(1,0,2,3,4)
@@ -198,23 +219,6 @@ class Experiment(experiment.Experiment):
                     start_time = time.time()
                     self.logger.dump(step)
 
-                # evaluate agent periodically
-                if step % exp_config.eval_freq == 0:
-                    self.evaluate_vec_env_of_tasks(
-                        vec_env=self.envs["eval"], step=step, episode=episode
-                    )
-                    if exp_config.save.model:
-                        self.agent.save(
-                            self.model_dir,
-                            step=step,
-                            retain_last_n=exp_config.save.model.retain_last_n,
-                        )
-                    if exp_config.save.buffer.should_save:
-                        self.replay_buffer.save(
-                            self.buffer_dir,
-                            size_per_chunk=exp_config.save.buffer.size_per_chunk,
-                            num_samples_to_save=exp_config.save.buffer.num_samples_to_save,
-                        )
                 episode += 1
                 episode_reward = np.full(shape=vec_env.num_envs, fill_value=0.0)
                 if "success" in self.metrics_to_track:
@@ -230,6 +234,8 @@ class Experiment(experiment.Experiment):
             else:
                 with agent_utils.eval_mode(self.agent):
                     # multitask_obs = {"env_obs": obs, "task_obs": env_indices}
+                    # self.agent: mtrl.agent.distral.Agent
+                    # train_mode: ["train"]
                     action = self.agent.sample_action(
                         multitask_obs=multitask_obs,
                         modes=[
@@ -242,6 +248,7 @@ class Experiment(experiment.Experiment):
                 num_updates = (
                     exp_config.init_steps if step == exp_config.init_steps else 1
                 )
+                # self.agent: mtrl.agent.distral.Agent
                 for _ in range(num_updates):
                     self.agent.update(self.replay_buffer, self.logger, step)
             next_multitask_obs, reward, done, info = vec_env.step(action)
