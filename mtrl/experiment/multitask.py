@@ -45,6 +45,7 @@ class Experiment(experiment.Experiment):
         seed_list = list(range(1, num_envs + 1))
         mode_list = [mode for _ in range(num_envs)]
 
+
         envs[mode] = hydra.utils.instantiate(
             self.config.env.builder,
             env_id_list=env_id_list,
@@ -130,11 +131,15 @@ class Experiment(experiment.Experiment):
         return env
 
     def run(self):
-        use_render = False
+        # use_render = False
         """Run the experiment."""
+        if self.config.agent['name']=='distral':
+            name = f"{self.config.agent['name']}-env-{self.config.env['train']}-seed-{self.config['setup']['seed']}-beta-{self.config.agent['distral_beta']}"
+        else:
+            name = f"{self.config.agent['name']}-env-{self.config.env['train']}-seed-{self.config['setup']['seed']}"
         wandb.init(
             project="mtrl",
-            name="test"
+            name=name
         )
 
         exp_config = self.config.experiment
@@ -161,11 +166,30 @@ class Experiment(experiment.Experiment):
 
         train_mode = ["train" for _ in range(vec_env.num_envs)]
 
-        imgs = []
+        # imgs = []
         for step in range(self.start_step, exp_config.num_train_steps):
+            if step < exp_config.init_steps:
+                action = np.asarray(
+                    [self.action_space.sample() for _ in range(vec_env.num_envs)]
+                )  # (num_envs, action_dim)
+
+            else:
+                with agent_utils.eval_mode(self.agent):
+                    # multitask_obs = {"env_obs": obs, "task_obs": env_indices}
+                    # if agent=distral, then self.agent: mtrl.agent.distral.Agent
+                    # train_mode: ["train"]
+                    action = self.agent.sample_action(
+                        multitask_obs=multitask_obs,
+                        modes=[
+                            train_mode,
+                        ],
+                    )  # (num_envs, action_dim)
+
+
             # evaluate agent periodically
-            if step % exp_config.eval_freq == 0:
+            if step % exp_config.eval_freq == 0 and step != 0:
                 print("start evaluate")
+                print("vec_env: ", vec_env)
                 self.evaluate_vec_env_of_tasks(
                     vec_env=self.envs["eval"], step=step, episode=episode
                 )
@@ -182,20 +206,21 @@ class Experiment(experiment.Experiment):
                         size_per_chunk=exp_config.save.buffer.size_per_chunk,
                         num_samples_to_save=exp_config.save.buffer.num_samples_to_save,
                     )
-
-            print("done: ", done)
-            # add or done
-            if done:  # todo
-                if use_render:
-                    imgs = np.array(imgs)
-                    imgs = imgs.transpose(1,0,2,3,4)
-                    for i in range(len(imgs)):
-                        imageio.mimsave(
-                            uri="result{}.gif".format(i),
-                            ims=imgs[i],
-                            format="GIF",
-                        )
-                    imgs = []
+            
+            # print("self.metrics_to_track: ", self.metrics_to_track)
+            # episode done
+            if step % self.max_episode_steps == 0:  # todo
+                # print(step, ", ", done)
+                # if use_render:
+                #     imgs = np.array(imgs)
+                #     imgs = imgs.transpose(1,0,2,3,4)
+                #     for i in range(len(imgs)):
+                #         imageio.mimsave(
+                #             uri="result{}.gif".format(i),
+                #             ims=imgs[i],
+                #             format="GIF",
+                #         )
+                #     imgs = []
                 if step > 0:
                     if "success" in self.metrics_to_track:
                         success = (success > 0).astype("float")
@@ -226,23 +251,6 @@ class Experiment(experiment.Experiment):
 
                 self.logger.log("train/episode", episode, step)
 
-            if step < exp_config.init_steps:
-                action = np.asarray(
-                    [self.action_space.sample() for _ in range(vec_env.num_envs)]
-                )  # (num_envs, action_dim)
-
-            else:
-                with agent_utils.eval_mode(self.agent):
-                    # multitask_obs = {"env_obs": obs, "task_obs": env_indices}
-                    # self.agent: mtrl.agent.distral.Agent
-                    # train_mode: ["train"]
-                    action = self.agent.sample_action(
-                        multitask_obs=multitask_obs,
-                        modes=[
-                            train_mode,
-                        ],
-                    )  # (num_envs, action_dim)
-
             # run training update
             if step >= exp_config.init_steps:
                 num_updates = (
@@ -251,15 +259,24 @@ class Experiment(experiment.Experiment):
                 # self.agent: mtrl.agent.distral.Agent
                 for _ in range(num_updates):
                     self.agent.update(self.replay_buffer, self.logger, step)
+            
             next_multitask_obs, reward, done, info = vec_env.step(action)
-            if use_render:
-                img = vec_env.render()
-                imgs.append(img)
+            # if use_render:
+            #     img = vec_env.render()
+            #     imgs.append(img)
             if self.should_reset_env_manually:
                 if (episode_step[0] + 1) % self.max_episode_steps == 0:
                     # we do a +2 because we started the counting from 0 and episode_step is incremented after updating the buffer
                     next_multitask_obs = vec_env.reset()
 
+
+            # print("done: ", done)
+            # print("num_envs: ",vec_env.num_envs)
+            # print("recorded: ", reward)
+            # print("episode_reward: ", episode_reward)
+
+
+            # reward is summation of 4 reward from environment
             episode_reward += reward
             if "success" in self.metrics_to_track:
                 success += np.asarray([x["success"] for x in info])

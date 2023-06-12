@@ -32,4 +32,9 @@ actor_cfg:
   should_condition_model_on_task_info: False
   should_condition_encoder_on_task_info: False
   should_concatenate_task_info_with_encoder: False
+  # soft modularization
+  moe_cfg:
+    mode: soft_modularization
+    num_experts: 4
+    should_use: True
 critic_cfg: ${agent.multitask.actor_cfg}

@@ -67,8 +67,8 @@ class Experiment(multitask.Experiment):
 
         # for rendering
         imgs = []
-        # while not np.all(done):
-        for _ in range(1000):
+        # for _ in range(1000):
+        while not np.all(done):
             action = self.get_action_when_evaluating_vec_env_of_tasks(
                 multitask_obs=multitask_obs, modes=vec_env.mode
             )
@@ -133,7 +133,7 @@ class Experiment(multitask.Experiment):
         imgs = np.concatenate(imgs, axis=1)
         imgs = imgs.transpose(0,3,1,2) 
         wandb.log(
-            {"video": wandb.Video(imgs[-100:], fps=10, caption="result.gif")}, 
+            {"video": wandb.Video(imgs, fps=10, caption="result.gif")}, 
             step=step
         )
         # for i in range(len(imgs)):

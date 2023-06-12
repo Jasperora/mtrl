@@ -48,9 +48,12 @@ builder:
     seed: ${setup.seed}
 train:
   - 0
+  - 1
+  - 2
+  - 3
 eval:
-  # interpolation: ${env.train}
-  # extrapolation: ${env.train}
+  # interpolation:
+  # extrapolation:
   base: ${env.train}
 description:
   
